@@ -4,7 +4,21 @@ import connectDB from "./db/index.js";
 import dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 
-connectDB();
+
+
+connectDB()
+.then(()=>{
+    app.on((err)=>{
+        console.error("Error in Express app:", err);
+    })
+    app.listen(process.env.PORT || 8000, ()=>{
+        console.log("Database connection established successfully.");
+    })
+})
+.catch((err)=>{
+    console.error("Failed to connect to the database:", err);
+    process.exit(1);
+})
 
 
 
