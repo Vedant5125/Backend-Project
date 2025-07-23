@@ -4,7 +4,7 @@ const asynHandler = (requesthandler) =>{
     }
 }
 
-export {asynHandler};
+export default asynHandler;
 
 
 // ******************************************************

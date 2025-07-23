@@ -1,6 +1,6 @@
 class apiResponse {
     constructor(statusCode, message = "Request was successful", data) {
-        this.res = res;
+        // this.res = res;
         this.statusCode = statusCode;
         this.data = data;
         this.message = message;
@@ -8,3 +8,5 @@ class apiResponse {
     }
 
 }
+
+export default apiResponse;
