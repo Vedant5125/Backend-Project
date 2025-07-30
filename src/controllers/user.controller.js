@@ -4,6 +4,22 @@ import User from "../models/user.model.js"
 import uploadOnCloudinary from "../utils/cloudinary.js"
 import apiResponse from "../utils/apiResponse.js";
 
+
+const generateAccessAndRefreshTokens = async (userId) =>{
+    try {
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave: false}) //refresh token saved to DB
+        
+        return {accessToken, refreshToken};
+
+    } catch (error) {
+        throw new apiError(500, "Something went wrong while generating Refresh and Access Token")
+    }
+}
+
 const registerUser = asynHandler(async (req, res) =>{
     // get user details from frontend
     // validation
@@ -41,7 +57,7 @@ const registerUser = asynHandler(async (req, res) =>{
     const avatarLocalPath = req.files?.avatar[0]?.path;
     // const coverImageLocalPath = req.files?.coverImage[0]?.path;
     let coverImageLocalPath;
-    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImageLocalPath.length>0){
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length >0){
         coverImageLocalPath = req.files.coverImage[0].path;
     }
 
@@ -77,4 +93,83 @@ const registerUser = asynHandler(async (req, res) =>{
 
 });
 
+const loginUser = asynHandler(async (req, res) =>{
+    //req.body -> data
+    //email or username
+    //find for user in DB
+    //check password
+    //access and refresh tokens
+    //send cookies
+
+    const {email, username, password} = req.body;
+
+    if(!(username || email)){
+        throw new apiError(400, "Username or Email is required");
+    }
+    const user = await User.findOne({
+        $or: [{username}, {email}]
+    })
+    if(!user){
+        throw new apiError(400, "User does not exist");
+    }
+    const validPassword = await user.isPasswordCorrect(password)
+    if(!validPassword){
+        throw new apiError(400, "Password does not match");
+    }
+
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id);
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new apiResponse(
+            200,
+            {
+                user: loggedInUser, accessToken, refreshToken
+            },
+            "User logged in successfully"
+        )
+    )
+})
+
+const logoutUser = asynHandler(async (req, res) =>{
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+        new apiResponse(
+            200,
+            {},
+            "User logged out successfully"
+        )
+    )
+})
+
 export default registerUser;
+export {loginUser, logoutUser};
